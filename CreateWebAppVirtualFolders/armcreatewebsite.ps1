@@ -33,7 +33,7 @@ Remove-Variable spNotExists
 
 # Login-AzureRmAccount
 
-Select-AzureRmSubscription -SubscriptionId  f19b7695-9685-461e-9700-2d9674197593
+#Select-AzureRmSubscription -SubscriptionId  xxx
 
 Get-AzureRmResourceGroup -Name $resourceGroupName -ErrorVariable rgNotExists -ErrorAction Continue
 if($rgNotExists)
