@@ -111,7 +111,8 @@
     "httpProbeName": "httpProbe",
     "httpsProbeName": "httpsProbe",
     "configScriptScriptFolder": "CustomScripts",
-    "configScriptScriptFileName": "configScript.sh"
+    "configScriptScriptFileName": "configScript.sh",
+    "singleQuote": "'"
   },
   "resources": [
     {
@@ -283,7 +284,6 @@
         "upgradePolicy": {
           "mode": "Manual"
         },
-
         "virtualMachineProfile": {
           "storageProfile": {
             "osDisk": {
@@ -344,57 +344,11 @@
                     "fileUris": [
                       "[concat(parameters('_artifactsLocation'), '/', variables('configScriptScriptFolder'), '/', variables('configScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
                     ],
-                    "commandToExecute": "[concat('bash ', variables('configScriptScriptFileName'), ' ',parameters('appPackageUri'),parameters('appPackageUriToken'))]"
+                    "commandToExecute": "[concat('bash ', variables('configScriptScriptFileName'),' ', variables('comma'),parameters('appPackageUri'),parameters('appPackageUriToken'),variables('comma'))]"
                   }
                 }
               }
             ]
-          },
-          ,
-          {
-            "type": "Microsoft.Insights/autoscaleSettings",
-            "apiVersion": "2015-04-01",
-            "name": "[concat(parameters('vmssName'),'as1')]",
-            "location": "[resourceGroup().location]",
-            "dependsOn": [
-              "[concat('Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]"
-            ],
-            "properties": {
-              "enabled": true,
-              "name": "[concat(parameters('vmssName'),'as1')]",
-              "profiles": [
-                {
-                  "name": "Profile1",
-                  "capacity": {
-                    "minimum": "1",
-                    "maximum": "10",
-                    "default": "1"
-                  },
-                  "rules": [
-                    {
-                      "metricTrigger": {
-                        "metricName": "\\Processor\\PercentProcessorTime",
-                        "metricNamespace": "",
-                        "metricResourceUri": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]",
-                        "timeGrain": "PT1M",
-                        "statistic": "Average",
-                        "timeWindow": "PT5M",
-                        "timeAggregation": "Average",
-                        "operator": "GreaterThan",
-                        "threshold": 50.0
-                      },
-                      "scaleAction": {
-                        "direction": "Increase",
-                        "type": "ChangeCount",
-                        "value": "1",
-                        "cooldown": "PT5M"
-                      }
-                    }
-                  ]
-                }
-              ],
-              "targetResourceUri": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/', resourceGroup().name,'/providers/Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]"
-            }
           }
         }
       }
