@@ -39,7 +39,7 @@
       "metadata": {
         "description": "Number of VM instances (100 or less)."
       },
-      "maxValue": 100
+      "maxValue": 40
     },
     "adminUsername": {
       "type": "string",
@@ -248,6 +248,8 @@
           {
             "name": "[variables('httpProbeName')]",
             "properties": {
+              //"protocol": "Http",
+              //"requestPath": "/index.jsp",
               "protocol": "Tcp",
               "port": 80,
               "intervalInSeconds": 5,
