@@ -110,8 +110,8 @@
     "ipConfigName": "[concat(variables('namingInfix'), 'ipconfig')]",
     "httpProbeName": "httpProbe",
     "httpsProbeName": "httpsProbe",
-      "configScriptScriptFolder": "CustomScripts",
-      "configScriptScriptFileName": "configScript.sh"
+    "configScriptScriptFolder": "CustomScripts",
+    "configScriptScriptFileName": "configScript.sh"
   },
   "resources": [
     {
@@ -296,79 +296,109 @@
               }
             }
           },
-          //"virtualMachineProfile": {
-          //  "storageProfile": {
-          //    "osDisk": {
-          //      "vhdContainers": [
-          //        "[concat('https://', variables('vmssStringArray')[0], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
-          //        "[concat('https://', variables('vmssStringArray')[1], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
-          //        "[concat('https://', variables('vmssStringArray')[2], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
-          //        "[concat('https://', variables('vmssStringArray')[3], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
-          //        "[concat('https://', variables('vmssStringArray')[4], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]"
-          //      ],
-          //      "name": "[variables('osDiskName')]",
-          //      "caching": "ReadOnly",
-          //      "createOption": "FromImage"
-          //    },
-          //    "imageReference": "[variables('imageReference')]"
-          //  },
-            "osProfile": {
-              "computerNamePrefix": "[variables('namingInfix')]",
-              "adminUsername": "[parameters('adminUsername')]",
-              "adminPassword": "[parameters('adminPassword')]"
-            },
-            "networkProfile": {
-              "networkInterfaceConfigurations": [
-                {
-                  "name": "[variables('nicName')]",
-                  "properties": {
-                    "primary": true,
-                    "ipConfigurations": [
-                      {
-                        "name": "[variables('ipConfigName')]",
-                        "properties": {
-                          "subnet": {
-                            "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName')), '/subnets/', variables('subnetName'))]"
-                          },
-                          "loadBalancerBackendAddressPools": [
-                            {
-                              "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/backendAddressPools/', variables('bePoolName'))]"
-                            }
-                          ],
-                          "loadBalancerInboundNatPools": [
-                            {
-                              "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/inboundNatPools/', variables('natPoolName'))]"
-                            }
-                          ]
-                        }
+          "osProfile": {
+            "computerNamePrefix": "[variables('namingInfix')]",
+            "adminUsername": "[parameters('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]"
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "[variables('nicName')]",
+                "properties": {
+                  "primary": true,
+                  "ipConfigurations": [
+                    {
+                      "name": "[variables('ipConfigName')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName')), '/subnets/', variables('subnetName'))]"
+                        },
+                        "loadBalancerBackendAddressPools": [
+                          {
+                            "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/backendAddressPools/', variables('bePoolName'))]"
+                          }
+                        ],
+                        "loadBalancerInboundNatPools": [
+                          {
+                            "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/inboundNatPools/', variables('natPoolName'))]"
+                          }
+                        ]
                       }
-                    ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "extensionProfile": {
+            "extensions": [
+              {
+                "name": "configScript",
+                "properties": {
+                  "publisher": "Microsoft.Azure.Extensions",
+                  "type": "CustomScript",
+                  "typeHandlerVersion": "2.0",
+                  "autoUpgradeMinorVersion": true,
+                  "settings": {
+                    "fileUris": [
+                      "[concat(parameters('_artifactsLocation'), '/', variables('configScriptScriptFolder'), '/', variables('configScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
+                    ],
+                    "commandToExecute": "[concat('bash ', variables('configScriptScriptFileName'), ' ',parameters('appPackageUri'),parameters('appPackageUriToken'))]"
                   }
                 }
-              ]
-            },
-            "extensionProfile": {
-                "extensions": [
+              }
+            ]
+          },
+          ,
+          {
+            "type": "Microsoft.Insights/autoscaleSettings",
+            "apiVersion": "2015-04-01",
+            "name": "[concat(parameters('vmssName'),'as1')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+              "[concat('Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]"
+            ],
+            "properties": {
+              "enabled": true,
+              "name": "[concat(parameters('vmssName'),'as1')]",
+              "profiles": [
+                {
+                  "name": "Profile1",
+                  "capacity": {
+                    "minimum": "1",
+                    "maximum": "10",
+                    "default": "1"
+                  },
+                  "rules": [
                     {
-                        "name": "configScript",
-                        "properties": {
-                            "publisher": "Microsoft.OSTCExtensions",
-                            "type": "CustomScriptForLinux",
-                            "typeHandlerVersion": "1.4",
-                            "autoUpgradeMinorVersion": true,
-                          "settings": {
-                            "fileUris": [
-                              "[concat(parameters('_artifactsLocation'), '/', variables('configScriptScriptFolder'), '/', variables('configScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
-                            ],
-                            "commandToExecute": "[concat('sh ', variables('configScriptScriptFileName'), ' ',parameters('appPackageUri'),parameters('appPackageUriToken'))]"
-                          }
-                        }
+                      "metricTrigger": {
+                        "metricName": "\\Processor\\PercentProcessorTime",
+                        "metricNamespace": "",
+                        "metricResourceUri": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/',resourceGroup().name,'/providers/Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]",
+                        "timeGrain": "PT1M",
+                        "statistic": "Average",
+                        "timeWindow": "PT5M",
+                        "timeAggregation": "Average",
+                        "operator": "GreaterThan",
+                        "threshold": 50.0
+                      },
+                      "scaleAction": {
+                        "direction": "Increase",
+                        "type": "ChangeCount",
+                        "value": "1",
+                        "cooldown": "PT5M"
+                      }
                     }
-                ]
+                  ]
+                }
+              ],
+              "targetResourceUri": "[concat('/subscriptions/',subscription().subscriptionId,'/resourceGroups/', resourceGroup().name,'/providers/Microsoft.Compute/virtualMachineScaleSets/',parameters('vmSSName'))]"
             }
           }
         }
       }
+    }
   ],
   "outputs": {
     "fqdn": {
@@ -376,5 +406,4 @@
       "type": "string"
     }
   }
-
 }
