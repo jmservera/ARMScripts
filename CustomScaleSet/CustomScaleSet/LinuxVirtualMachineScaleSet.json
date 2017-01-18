@@ -1,0 +1,380 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSku": {
+      "type": "string",
+      "defaultValue": "Standard_D1",
+      "metadata": {
+        "description": "Size of VMs in the VM Scale Set."
+      },
+      "allowedValues": [
+        "Standard_D1",
+        "Standard_DS1",
+        "Standard_D2",
+        "Standard_DS2",
+        "Standard_D3",
+        "Standard_DS3",
+        "Standard_D4",
+        "Standard_DS4",
+        "Standard_D11",
+        "Standard_DS11",
+        "Standard_D12",
+        "Standard_DS12",
+        "Standard_D13",
+        "Standard_DS13",
+        "Standard_D14",
+        "Standard_DS14"
+      ]
+    },
+    "vmssName": {
+      "type": "string",
+      "metadata": {
+        "description": "String used as a base for naming resources. Must be 3-61 characters in length and globally unique across Azure. A hash is prepended to this string for some resources, and resource-specific information is appended."
+      },
+      "maxLength": 61
+    },
+    "capacity": {
+      "type": "int",
+      "metadata": {
+        "description": "Number of VM instances (100 or less)."
+      },
+      "maxValue": 100
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Admin username on all VMs."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password on all VMs."
+      }
+    },
+    "sourceImageVhdUri": {
+      "type": "string",
+      "metadata": {
+        "description": "The source of the blob containing the custom image"
+      },
+      "defaultValue": "https://jmnodesrvdisks870.blob.core.windows.net/system/Microsoft.Compute/Images/vhds/jmnodeserver-osDisk.cc57607c-1824-4177-8236-df5a92f917c8.vhd"
+    },
+    "sourceImageVhdUriToken": {
+      "type": "securestring",
+      "defaultValue": "?st=2017-01-17T18%3A34%3A00Z&se=2018-01-18T18%3A34%3A00Z&sp=r&sv=2015-12-11&sr=b&sig=27gICY3lhr1QRux0mEWw%2BJluT3fGjkqSsUI4TNVr8NM%3D"
+    },
+    "appPackageUri": {
+      "type": "string",
+      "defaultValue": "https://jmnodesrvdisks870.blob.core.windows.net/app/hello.js"
+    },
+    "appPackageUriToken": {
+      "type": "securestring",
+      "defaultValue": "?st=2017-01-17T18%3A34%3A00Z&se=2018-01-18T18%3A34%3A00Z&sp=r&sv=2015-12-11&sr=b&sig=fXIc4XybR%2Bom9MPDx%2FIlOHTcU5GJjBTEeZ1EdXIX3%2BE%3D"
+    },
+    "_artifactsLocation": {
+      "type": "string"
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring"
+    }
+  },
+  "variables": {
+    "namingInfix": "[toLower(substring(concat(parameters('vmssName'), uniqueString(resourceGroup().id)), 0, 9))]",
+    "storageAccountType": "Standard_LRS",
+    "newStorageAccountSuffix": "[concat(variables('namingInfix'), 'sa')]",
+    "vmssStringArray": [
+      "[concat(uniqueString(concat(variables('newStorageAccountSuffix'), '0')))]",
+      "[concat(uniqueString(concat(variables('newStorageAccountSuffix'), '1')))]",
+      "[concat(uniqueString(concat(variables('newStorageAccountSuffix'), '2')))]",
+      "[concat(uniqueString(concat(variables('newStorageAccountSuffix'), '3')))]",
+      "[concat(uniqueString(concat(variables('newStorageAccountSuffix'), '4')))]"
+    ],
+    "saCount": "[length(variables('vmssStringArray'))]",
+    "vhdContainerName": "[concat(variables('namingInfix'), 'vhd')]",
+    "osDiskName": "[concat(variables('namingInfix'), 'osdisk')]",
+    "addressPrefix": "10.0.0.0/16",
+    "subnetPrefix": "10.0.0.0/24",
+    "virtualNetworkName": "[concat(variables('namingInfix'), 'vnet')]",
+    "subnetName": "[concat(variables('namingInfix'), 'subnet')]",
+    "lbName": "[concat(variables('namingInfix'), 'lb')]",
+    "bepoolName": "[concat(variables('lbName'), 'bepool')]",
+    "fepoolName": "[concat(variables('lbName'), 'fepool')]",
+    "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('lbName'))]",
+    "bepoolID": "[concat(variables('lbID'),'/backendAddressPools/', variables('bepoolName'))]",
+    "feIpConfigName": "[concat(variables('fepoolName'), 'IpConfig')]",
+    "feIpConfigId": "[concat(variables('lbID'),'/frontendIPConfigurations/', variables('feIpConfigName'))]",
+    "pipName": "[concat(variables('namingInfix'), 'pip')]",
+    "nicName": "[concat(variables('namingInfix'), 'nic')]",
+    "natPoolName": "[concat(variables('lbName'), 'natpool')]",
+    "ipConfigName": "[concat(variables('namingInfix'), 'ipconfig')]",
+    "httpProbeName": "httpProbe",
+    "httpsProbeName": "httpsProbe",
+      "configScriptScriptFolder": "CustomScripts",
+      "configScriptScriptFileName": "configScript.sh"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[concat(variables('vmssStringArray')[copyIndex()], variables('newStorageAccountSuffix'))]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "copy": {
+        "name": "storageLoop",
+        "count": "[variables('saCount')]"
+      },
+      "properties": {
+        "accountType": "[variables('storageAccountType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('pipName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('namingInfix')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "name": "[variables('lbName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('pipName'))]"
+      ],
+      "tags": {
+        "displayName": "Load Balancer"
+      },
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "[variables('feIpConfigName')]",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[variables('bepoolName')]"
+          }
+        ],
+        "inboundNatPools": [
+          {
+            "name": "[variables('natPoolName')]",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('feIpConfigId')]"
+              },
+              "protocol": "tcp",
+              "frontendPortRangeStart": 10022,
+              "frontendPortRangeEnd": 11022,
+              "backendPort": 22
+            }
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "HTTPRule",
+            "properties": {
+              "loadDistribution": "Default",
+              "frontendIPConfiguration": {
+                "id": "[variables('feIpConfigId')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('bepoolID')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 80,
+              "backendPort": 80,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[concat(variables('lbId'), '/probes/', variables('httpProbeName'))]"
+              }
+            }
+          },
+          {
+            "name": "HTTPSRule",
+            "properties": {
+              "loadDistribution": "Default",
+              "frontendIPConfiguration": {
+                "id": "[variables('feIpConfigId')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('bepoolId')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 443,
+              "backendPort": 443,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[concat(resourceId('Microsoft.Network/loadBalancers', variables('lbName')), '/probes/', variables('httpsProbeName'))]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "[variables('httpProbeName')]",
+            "properties": {
+              "protocol": "Tcp",
+              "port": 80,
+              "intervalInSeconds": 5,
+              "numberOfProbes": 2
+            }
+          },
+          {
+            "name": "[variables('httpsProbeName')]",
+            "properties": {
+              "protocol": "Tcp",
+              "port": 443,
+              "intervalInSeconds": 5,
+              "numberOfProbes": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "name": "[variables('namingInfix')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2015-06-15",
+      "dependsOn": [
+        "storageLoop",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('vmSku')]",
+        "tier": "Standard",
+        "capacity": "[parameters('capacity')]"
+      },
+      "properties": {
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "osDisk": {
+              "name": "vmssosdisk",
+              "caching": "ReadOnly",
+              "createOption": "FromImage",
+              "osType": "Linux",
+              "image": {
+                "uri": "[parameters('sourceImageVhdUri')]"
+              }
+            }
+          },
+          //"virtualMachineProfile": {
+          //  "storageProfile": {
+          //    "osDisk": {
+          //      "vhdContainers": [
+          //        "[concat('https://', variables('vmssStringArray')[0], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
+          //        "[concat('https://', variables('vmssStringArray')[1], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
+          //        "[concat('https://', variables('vmssStringArray')[2], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
+          //        "[concat('https://', variables('vmssStringArray')[3], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]",
+          //        "[concat('https://', variables('vmssStringArray')[4], variables('newStorageAccountSuffix'), '.blob.core.windows.net/', variables('vhdContainerName'))]"
+          //      ],
+          //      "name": "[variables('osDiskName')]",
+          //      "caching": "ReadOnly",
+          //      "createOption": "FromImage"
+          //    },
+          //    "imageReference": "[variables('imageReference')]"
+          //  },
+            "osProfile": {
+              "computerNamePrefix": "[variables('namingInfix')]",
+              "adminUsername": "[parameters('adminUsername')]",
+              "adminPassword": "[parameters('adminPassword')]"
+            },
+            "networkProfile": {
+              "networkInterfaceConfigurations": [
+                {
+                  "name": "[variables('nicName')]",
+                  "properties": {
+                    "primary": true,
+                    "ipConfigurations": [
+                      {
+                        "name": "[variables('ipConfigName')]",
+                        "properties": {
+                          "subnet": {
+                            "id": "[concat(resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName')), '/subnets/', variables('subnetName'))]"
+                          },
+                          "loadBalancerBackendAddressPools": [
+                            {
+                              "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/backendAddressPools/', variables('bePoolName'))]"
+                            }
+                          ],
+                          "loadBalancerInboundNatPools": [
+                            {
+                              "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/loadBalancers/', variables('lbName'), '/inboundNatPools/', variables('natPoolName'))]"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "extensionProfile": {
+                "extensions": [
+                    {
+                        "name": "configScript",
+                        "properties": {
+                            "publisher": "Microsoft.OSTCExtensions",
+                            "type": "CustomScriptForLinux",
+                            "typeHandlerVersion": "1.4",
+                            "autoUpgradeMinorVersion": true,
+                          "settings": {
+                            "fileUris": [
+                              "[concat(parameters('_artifactsLocation'), '/', variables('configScriptScriptFolder'), '/', variables('configScriptScriptFileName'), parameters('_artifactsLocationSasToken'))]"
+                            ],
+                            "commandToExecute": "[concat('sh ', variables('configScriptScriptFileName'), ' ',parameters('appPackageUri'),parameters('appPackageUriToken'))]"
+                          }
+                        }
+                    }
+                ]
+            }
+          }
+        }
+      }
+  ],
+  "outputs": {
+    "fqdn": {
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses',variables('pipName')),'2016-03-30').dnsSettings.fqdn]",
+      "type": "string"
+    }
+  }
+
+}
