@@ -60,10 +60,6 @@
       },
       "defaultValue": "https://jmnodesrvdisks870.blob.core.windows.net/system/Microsoft.Compute/Images/vhds/jmnodeserver-osDisk.cc57607c-1824-4177-8236-df5a92f917c8.vhd"
     },
-    "sourceImageVhdUriToken": {
-      "type": "securestring",
-      "defaultValue": "?st=2017-01-17T18%3A34%3A00Z&se=2018-01-18T18%3A34%3A00Z&sp=r&sv=2015-12-11&sr=b&sig=27gICY3lhr1QRux0mEWw%2BJluT3fGjkqSsUI4TNVr8NM%3D"
-    },
     "appPackageUri": {
       "type": "string",
       "defaultValue": "https://jmnodesrvdisks870.blob.core.windows.net/app/hello.js"
