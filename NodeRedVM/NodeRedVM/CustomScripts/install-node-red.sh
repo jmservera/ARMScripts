@@ -1,8 +1,9 @@
 #!/bin/bash
 init(){
-	echo "**** initializing update & upgrade"
-	sudo apt-get update -y;
-	sudo apt-get upgrade -y;
+	# echo "**** initializing update & upgrade"
+	# sudo apt-get update -y;
+	# sudo apt-get upgrade -y;
+	echo "**** creating user node-red-service"
 	#create a user for node-red to execute as a service but with a /home folder
 	sudo adduser --disabled-password --disabled-login -gecos "" node-red-service
 }

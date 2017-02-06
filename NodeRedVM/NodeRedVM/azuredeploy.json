@@ -20,24 +20,23 @@
         "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
       }
     },
-      "_artifactsLocation": {
-          "type": "string",
-          "metadata": {
-              "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
-          }
-      },
-      "_artifactsLocationSasToken": {
-          "type": "securestring",
-          "metadata": {
-              "description": "Auto-generated token to access _artifactsLocation"
-          }
+    "_artifactsLocation": {
+      "type": "string",
+      "metadata": {
+        "description": "Auto-generated container in staging storage account to receive post-build staging folder upload"
       }
+    },
+    "_artifactsLocationSasToken": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Auto-generated token to access _artifactsLocation"
+      }
+    }
   },
   "variables": {
     "ubuntuOSVersion": "16.04.0-LTS",
     "storageAccountName": "[concat(uniquestring(resourceGroup().id), 'salinuxvm')]",
     "networkSecurityGroupName": "[concat(uniquestring(resourceGroup().id),'nsg')]",
-    "dataDisk1VhdName": "datadisk1",
     "imagePublisher": "Canonical",
     "imageOffer": "UbuntuServer",
     "OSDiskName": "osdiskforlinuxsimple",
@@ -50,7 +49,7 @@
     "publicIPAddressType": "Dynamic",
     "vmStorageAccountContainerName": "vhds",
     "vmName": "MyUbuntuVM",
-    "vmSize": "Standard_D1",
+    "vmSize": "Standard_DS1_v2",
     "virtualNetworkName": "MyVNET",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
@@ -82,7 +81,7 @@
       }
     },
     {
-      "apiVersion": "2016-09-01",
+      "apiVersion": "2016-03-30",
       "type": "Microsoft.Network/networkSecurityGroups",
       "name": "[variables('networkSecurityGroupName')]",
       "location": "[resourceGroup().location]",
@@ -91,28 +90,28 @@
           {
             "name": "ssh",
             "properties": {
-              "description": "This is the first rule",
+              "description": "SSH port",
               "protocol": "Tcp",
-              "sourcePortRange": "22",
+              "sourcePortRange": "*",
               "destinationPortRange": "22",
-              "sourceAddressPrefix": "*",
+              "sourceAddressPrefix": "Internet",
               "destinationAddressPrefix": "*",
               "access": "Allow",
-              "priority": 1000,
+              "priority": 100,
               "direction": "Inbound"
             }
           },
           {
-            "name": "node-red",
+            "name": "nodered",
             "properties": {
-              "description": "This is the first rule",
+              "description": "Node-RED server port",
               "protocol": "Tcp",
-              "sourcePortRange": "1880",
+              "sourcePortRange": "*",
               "destinationPortRange": "1880",
-              "sourceAddressPrefix": "*",
+              "sourceAddressPrefix": "Internet",
               "destinationAddressPrefix": "*",
               "access": "Allow",
-              "priority": 1010,
+              "priority": 101,
               "direction": "Inbound"
             }
           }
@@ -204,18 +203,7 @@
             },
             "caching": "ReadWrite",
             "createOption": "FromImage"
-          },
-          "dataDisks": [
-            {
-              "name": "datadisk1",
-              "diskSizeGB": "100",
-              "lun": 0,
-              "vhd": {
-                "uri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName')), '2016-01-01').primaryEndpoints.blob, variables('vmStorageAccountContainerName'),'/',variables('dataDisk1VhdName'),'.vhd')]"
-              },
-              "createOption": "Empty"
-            }
-          ]
+          }
         },
         "networkProfile": {
           "networkInterfaces": [
@@ -244,15 +232,15 @@
             "displayName": "install-node-red"
           },
           "properties": {
-            "publisher": "Microsoft.OSTCExtensions",
-            "type": "CustomScriptForLinux",
-            "typeHandlerVersion": "1.4",
+            "publisher": "Microsoft.Azure.Extensions",
+            "type": "CustomScript",
+            "typeHandlerVersion": "2.0",
             "autoUpgradeMinorVersion": true,
             "settings": {
               "fileUris": [
                 "[concat(parameters('_artifactsLocation'), '/', variables('install-node-redScriptFolder'), '/', variables('install-node-redScriptFileName'), parameters('_artifactsLocationSasToken'))]"
               ],
-              "commandToExecute": "[concat('sh ', variables('install-node-redScriptFileName'))]"
+              "commandToExecute": "[concat('bash ', variables('install-node-redScriptFileName'))]"
             }
           }
         }
